@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agregador de Notícias PT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    header {
+      background: #020617;
+      padding: 16px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    h1 { margin: 0 0 4px 0; font-size: 1.4rem; }
+    header p { margin: 0; font-size: 0.85rem; color: #9ca3af; }
+
+    main {
+      padding: 16px 24px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    .controls input[type="text"] {
+      flex: 1 1 220px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      outline: none;
+    }
+    .controls input[type="text"]::placeholder { color: #6b7280; }
+    .btn {
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      background: #6366f1;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .btn span.icon { font-size: 0.95rem; }
+
+    select {
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.85rem;
+    }
+
+    .results-meta {
+      margin-top: 8px;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+    .results {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .card {
+      background: #020617;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid #1f2937;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .site-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #a5b4fc;
+      font-weight: 600;
+    }
+    .date-label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      white-space: nowrap;
+    }
+    .card-title { margin: 0; font-size: 0.95rem; }
+    .card-title a {
+      color: #e5e7eb;
+      text-decoration: none;
+    }
+    .card-title a:hover { text-decoration: underline; }
+    .card-snippet {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+    .card-footer a {
+      font-size: 0.75rem;
+      color: #6366f1;
+      text-decoration: none;
+    }
+    .card-footer a:hover { text-decoration: underline; }
+    .error { margin-top: 8px; color: #f87171; font-size: 0.8rem; }
+
+    @media (max-width: 640px) {
+      main { padding: 12px 12px 28px; }
+      header { padding: 12px 12px; }
+      .card { padding: 10px; }
+      .controls { flex-direction: column; align-items: stretch; }
+      select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Agregador de Notícias PT</h1>
+    <p>Desporto, política, boatos, famosos – pesquisa em dezenas de sites portugueses.</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <input
+        type="text"
+        id="queryInput"
+        placeholder="Ex.: Benfica, André Ventura, governo, boatos..."
+      />
+      <select id="timeFilter">
+        <option value="0">Sem filtro de tempo</option>
+        <option value="12">Últimas 12 horas</option>
+        <option value="24" selected>Últimas 24 horas</option>
+        <option value="48">Últimas 48 horas</option>
+      </select>
+      <button class="btn" id="searchBtn">
+        <span class="icon">🔎</span>
+        <span>Pesquisar</span>
+      </button>
+    </section>
+
+    <div id="resultsMeta" class="results-meta"></div>
+    <div id="errorBox" class="error"></div>
+    <section id="results" class="results"></section>
+  </main>
+
+  <script>
+    const searchBtn = document.getElementById("searchBtn");
+    const queryInput = document.getElementById("queryInput");
+    const timeFilter = document.getElementById("timeFilter");
+    const resultsMetaEl = document.getElementById("resultsMeta");
+    const errorBox = document.getElementById("errorBox");
+    const resultsEl = document.getElementById("results");
+
+    function setLoading(on) {
+      if (on) {
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = '<span class="icon">⏳</span><span>A procurar...</span>';
+      } else {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = '<span class="icon">🔎</span><span>Pesquisar</span>';
+      }
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return "";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleString("pt-PT");
+    }
+
+    async function pesquisar() {
+      const q = queryInput.value.trim();
+      const hours = timeFilter.value;
+
+      errorBox.textContent = "";
+      resultsMetaEl.textContent = "";
+      resultsEl.innerHTML = "";
+
+      if (!q) {
+        errorBox.textContent = "Escreve um termo de pesquisa (ex.: Benfica, Ventura...).";
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const url = `/search?q=${encodeURIComponent(q)}&hours=${hours}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("Erro HTTP " + resp.status);
+        const dados = await resp.json();
+
+        if (!dados.length) {
+          resultsMetaEl.textContent = `Nenhum resultado encontrado para "${q}" com esse filtro de tempo.`;
+          return;
+        }
+
+        const labelTempo =
+          hours === "0"
+            ? "sem filtro de tempo"
+            : `últimas ${hours} horas`;
+
+        resultsMetaEl.textContent =
+          `Encontradas ${dados.length} notícias para "${q}" (${labelTempo}).`;
+
+        dados.forEach((item) => {
+          const card = document.createElement("article");
+          card.className = "card";
+
+          const header = document.createElement("div");
+          header.className = "card-header";
+
+          const siteEl = document.createElement("div");
+          siteEl.className = "site-label";
+          siteEl.textContent = item.site;
+
+          const dateEl = document.createElement("div");
+          dateEl.className = "date-label";
+          dateEl.textContent = item.data ? formatDate(item.data) : "";
+
+          header.appendChild(siteEl);
+          header.appendChild(dateEl);
+
+          const titleEl = document.createElement("h2");
+          titleEl.className = "card-title";
+          const a = document.createElement("a");
+          a.href = item.link;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = item.titulo;
+          titleEl.appendChild(a);
+
+          const snippetEl = document.createElement("p");
+          snippetEl.className = "card-snippet";
+          snippetEl.textContent = item.resumo || "";
+
+          const footer = document.createElement("div");
+          footer.className = "card-footer";
+          const linkEl = document.createElement("a");
+          linkEl.href = item.link;
+          linkEl.target = "_blank";
+          linkEl.rel = "noopener noreferrer";
+          linkEl.textContent = "Abrir notícia ↗";
+          footer.appendChild(linkEl);
+
+          card.appendChild(header);
+          card.appendChild(titleEl);
+          if (item.resumo) card.appendChild(snippetEl);
+          card.appendChild(footer);
+
+          resultsEl.appendChild(card);
+        });
+      } catch (err) {
+        console.error(err);
+        errorBox.textContent = "Erro ao contactar o servidor. Tenta novamente mais tarde.";
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    searchBtn.addEventListener("click", pesquisar);
+    queryInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") pesquisar();
+    });
+  </script>
+</body>
+</html>
