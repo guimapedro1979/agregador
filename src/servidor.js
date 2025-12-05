@@ -9,7 +9,8 @@ app.use(cors());
 app.use(express.json());
 
 // servir ficheiros estáticos da pasta /public
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "..", "public")));
+
 
 // rota de teste
 app.get("/health", (req, res) => {
@@ -36,7 +37,8 @@ app.get("/api/noticias", async (req, res) => {
 
 // fallback: qualquer rota -> index.html
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+
 });
 
 const PORT = process.env.PORT || 3000;
