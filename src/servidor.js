@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// User-Agent para não sermos bloqueados tão facilmente
+// User-Agent para evitar bloqueios básicos
 const DEFAULT_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -18,7 +18,7 @@ const DEFAULT_HEADERS = {
 };
 
 // ==================================================
-//  LISTA DE FONTES – RSS quando há, HTML scraping quando não
+//  FONTES: RSS quando existe, scraping HTML quando não
 // ==================================================
 const fontes = [
   // --- DESPORTO (jornais)
@@ -31,7 +31,7 @@ const fontes = [
     fonte: "ZeroZero",
     url: "https://www.zerozero.pt",
     rss: "https://www.zerozero.pt/rss/noticias.php",
-  }, // rss + scraping fallback
+  },
   {
     fonte: "Bola na Rede",
     url: "https://bolanarede.pt",
@@ -39,7 +39,7 @@ const fontes = [
   },
 
   // --- Benfica
-  { fonte: "1904 Glorioso", url: "https://1904glorioso.com" }, // scraping (se existir)
+  { fonte: "1904 Glorioso", url: "https://1904glorioso.com" }, // scraping
   {
     fonte: "Geração Benfica",
     url: "https://geracaobenfica.blogspot.com",
@@ -49,10 +49,7 @@ const fontes = [
 
   // --- Sporting
   { fonte: "O Leonino", url: "https://www.oartistadodia.pt" }, // scraping genérico
-  {
-    fonte: "Sporting CP",
-    url: "https://www.sporting.pt",
-  }, // scraping
+  { fonte: "Sporting CP", url: "https://www.sporting.pt" }, // scraping
   {
     fonte: "Bancada de Leão",
     url: "https://bancadadeleao.blogspot.com",
@@ -69,26 +66,11 @@ const fontes = [
   },
 
   // --- JORNAIS GENERALISTAS
-  {
-    fonte: "Público",
-    url: "https://www.publico.pt",
-  }, // scraping (rss atual é chato)
-  {
-    fonte: "Expresso",
-    url: "https://expresso.pt",
-  }, // scraping
-  {
-    fonte: "Diário de Notícias",
-    url: "https://www.dn.pt",
-  }, // scraping
-  {
-    fonte: "Jornal de Notícias",
-    url: "https://www.jn.pt",
-  }, // scraping
-  {
-    fonte: "Correio da Manhã",
-    url: "https://www.cmjornal.pt",
-  }, // scraping
+  { fonte: "Público", url: "https://www.publico.pt" }, // scraping
+  { fonte: "Expresso", url: "https://expresso.pt" }, // scraping
+  { fonte: "Diário de Notícias", url: "https://www.dn.pt" }, // scraping
+  { fonte: "Jornal de Notícias", url: "https://www.jn.pt" }, // scraping
+  { fonte: "Correio da Manhã", url: "https://www.cmjornal.pt" }, // scraping
   {
     fonte: "Observador",
     url: "https://observador.pt",
@@ -183,7 +165,7 @@ const fontes = [
 ];
 
 // ==================================================
-//  FUNÇÃO RSS (quando existir e não falhar)
+//  LEITURA POR RSS (quando existir)
 // ==================================================
 async function buscarNoticiasRSS(fonte, termo) {
   if (!fonte.rss) return [];
@@ -199,11 +181,14 @@ async function buscarNoticiasRSS(fonte, termo) {
 
     $("item").each((_, el) => {
       const titulo = $(el).find("title").first().text().trim();
-      const descricao = $(el).find("description").first().text().trim();
+      let descricao = $(el).find("description").first().text().trim();
       const link = $(el).find("link").first().text().trim();
       const pubDate = $(el).find("pubDate").first().text().trim();
 
       if (!titulo && !descricao) return;
+
+      // fallback: se não houver descrição, usamos o título como resumo
+      if (!descricao) descricao = titulo;
 
       const textoCompleto = (titulo + " " + descricao).toLowerCase();
       if (!textoCompleto.includes(termoLower)) return;
@@ -230,7 +215,7 @@ async function buscarNoticiasRSS(fonte, termo) {
 }
 
 // ==================================================
-//  FUNÇÃO SCRAPING HTML GENÉRICO
+//  SCRAPING HTML (quando não há RSS ou falha)
 // ==================================================
 async function buscarNoticiasHTML(fonte, termo) {
   if (!fonte.url) return [];
@@ -245,9 +230,8 @@ async function buscarNoticiasHTML(fonte, termo) {
     const noticias = [];
     const usados = new Set();
 
-    // Procurar links que contenham o termo no texto
     $("a").each((_, el) => {
-      if (noticias.length >= 5) return; // max 5 por site (para não rebentar)
+      if (noticias.length >= 5) return; // máximo 5 por site
 
       const texto = $(el).text().trim();
       if (!texto) return;
@@ -258,7 +242,6 @@ async function buscarNoticiasHTML(fonte, termo) {
       let href = $(el).attr("href") || "";
       if (!href) return;
 
-      // link absoluto
       try {
         href = new URL(href, fonte.url).toString();
       } catch {
@@ -269,17 +252,16 @@ async function buscarNoticiasHTML(fonte, termo) {
       if (usados.has(key)) return;
       usados.add(key);
 
-      // tentar apanhar um parágrafo próximo como resumo
       let resumo = "";
       const article = $(el).closest("article");
       if (article.length) {
         resumo = article.find("p").first().text().trim();
       }
       if (!resumo) {
-        // procurar <p> logo a seguir
         const pNext = $(el).parent().find("p").first().text().trim();
         if (pNext) resumo = pNext;
       }
+      if (!resumo) resumo = texto; // fallback final = título
 
       const dataIso = new Date().toISOString();
 
@@ -300,7 +282,7 @@ async function buscarNoticiasHTML(fonte, termo) {
 }
 
 // ==================================================
-//  ROTA /api/noticias – combina RSS + HTML
+//  ROTA PRINCIPAL /api/noticias
 // ==================================================
 app.get("/api/noticias", async (req, res) => {
   const termo = (req.query.q || "").trim();
@@ -313,7 +295,7 @@ app.get("/api/noticias", async (req, res) => {
   try {
     const porFonte = await Promise.all(
       fontes.map(async (f) => {
-        // 1º tenta RSS, se existir
+        // 1º tenta RSS se existir
         const rssNoticias = await buscarNoticiasRSS(f, termo);
         if (rssNoticias.length) return rssNoticias;
 
@@ -325,16 +307,16 @@ app.get("/api/noticias", async (req, res) => {
 
     let todos = porFonte.flat();
 
-    // filtro por horas, se escolhido
+    // filtro de horas (0 = sem filtro)
     if (hoursParam > 0) {
       const limite = new Date(Date.now() - hoursParam * 3600 * 1000);
       todos = todos.filter((n) => new Date(n.data) >= limite);
     }
 
-    // ordenar por data (mais recente primeiro)
+    // ordenar por data (mais recente 1º)
     todos.sort((a, b) => new Date(b.data) - new Date(a.data));
 
-    // se mesmo assim nada, devolve notícias "fake" para não ficar vazio
+    // se não houver nada, devolve pelo menos exemplos básicos
     if (!todos.length) {
       const agora = new Date();
       todos = fontes.map((fonte, idx) => {
@@ -358,6 +340,7 @@ app.get("/api/noticias", async (req, res) => {
 
 // ==================================================
 //  SERVIR FRONTEND (pasta public)
+//  ⚠ Se a tua pasta se chamar "público", troca "../public" por "../público"
 // ==================================================
 app.use(express.static(path.join(__dirname, "../public")));
 
