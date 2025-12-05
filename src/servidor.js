@@ -9,87 +9,189 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// ===============================
-//  50 SITES / BLOGS PORTUGUESES
-// ===============================
+// User-Agent para não sermos bloqueados tão facilmente
+const DEFAULT_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/119.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+};
+
+// ==================================================
+//  LISTA DE FONTES – RSS quando há, HTML scraping quando não
+// ==================================================
 const fontes = [
   // --- DESPORTO (jornais)
-  { fonte: "A Bola", rss: "https://www.abola.pt/rss" },
-  { fonte: "Record", rss: "https://www.record.pt/rss.aspx" },
-  { fonte: "O Jogo", rss: "https://www.ojogo.pt/rss.html" },
-  { fonte: "MaisFutebol", rss: "https://maisfutebol.iol.pt/rss" },
-  { fonte: "Sapo Desporto", rss: "https://feeds.feedburner.com/sapodesporto" },
-  { fonte: "ZeroZero", rss: "https://www.zerozero.pt/rss/noticias.php" },
-  { fonte: "Bola na Rede", rss: "https://bolanarede.pt/feed" },
-  { fonte: "RTP Desporto", rss: "https://www.rtp.pt/noticias/rss/desporto" },
+  { fonte: "A Bola", url: "https://www.abola.pt" }, // scraping
+  { fonte: "Record", url: "https://www.record.pt" }, // scraping
+  { fonte: "O Jogo", url: "https://www.ojogo.pt" }, // scraping
+  { fonte: "MaisFutebol", url: "https://maisfutebol.iol.pt" }, // scraping
+  { fonte: "Sapo Desporto", url: "https://desporto.sapo.pt" }, // scraping
+  {
+    fonte: "ZeroZero",
+    url: "https://www.zerozero.pt",
+    rss: "https://www.zerozero.pt/rss/noticias.php",
+  }, // rss + scraping fallback
+  {
+    fonte: "Bola na Rede",
+    url: "https://bolanarede.pt",
+    rss: "https://bolanarede.pt/feed",
+  },
 
   // --- Benfica
-  { fonte: "1904 Glorioso", rss: "https://1904glorioso.com/feed" },
-  { fonte: "1904 Glorioso", rss: "https://glorioso1904.pt/feed" },
-  { fonte: "Geração Benfica", rss: "https://geracaobenfica.blogspot.com/feeds/posts/default" },
-  { fonte: "Benfica Oficial", rss: "https://www.slbenfica.pt/rss" },
+  { fonte: "1904 Glorioso", url: "https://1904glorioso.com" }, // scraping (se existir)
+  {
+    fonte: "Geração Benfica",
+    url: "https://geracaobenfica.blogspot.com",
+    rss: "https://geracaobenfica.blogspot.com/feeds/posts/default",
+  },
+  { fonte: "Benfica Oficial", url: "https://www.slbenfica.pt" }, // scraping
 
   // --- Sporting
-  { fonte: "O Leonino", rss: "https://www.oartistadodia.pt/feeds/posts/default" }, // ajuste se tiver outro feed
-  { fonte: "O Leonino", rss: "https://leonino.pt/feeds/posts/default" },
-  { fonte: "Sporting CP", rss: "https://www.sporting.pt/pt/noticias/rss" },
-  { fonte: "Bancada de Leão", rss: "https://bancadadeleao.blogspot.com/feeds/posts/default" },
+  { fonte: "O Leonino", url: "https://www.oartistadodia.pt" }, // scraping genérico
+  {
+    fonte: "Sporting CP",
+    url: "https://www.sporting.pt",
+  }, // scraping
+  {
+    fonte: "Bancada de Leão",
+    url: "https://bancadadeleao.blogspot.com",
+    rss: "https://bancadadeleao.blogspot.com/feeds/posts/default",
+  },
 
   // --- FC Porto
-  { fonte: "Porto Canal", rss: "https://portocanal.sapo.pt/rss" },
-  { fonte: "Somos Porto", rss: "https://somosporto.pt/feed" },
-  { fonte: "Dragão Invictus", rss: "https://dragaoinvictus.blogspot.com/feeds/posts/default" },
+  { fonte: "Porto Canal", url: "https://portocanal.sapo.pt" }, // scraping
+  { fonte: "Somos Porto", url: "https://somosporto.pt" }, // scraping
+  {
+    fonte: "Dragão Invictus",
+    url: "https://dragaoinvictus.blogspot.com",
+    rss: "https://dragaoinvictus.blogspot.com/feeds/posts/default",
+  },
 
   // --- JORNAIS GENERALISTAS
-  { fonte: "Público", rss: "https://www.publico.pt/rss" },
-  { fonte: "Expresso", rss: "https://expresso.pt/rss" },
-  { fonte: "Diário de Notícias", rss: "https://www.dn.pt/rss" },
-  { fonte: "Jornal de Notícias", rss: "https://www.jn.pt/rss" },
-  { fonte: "Correio da Manhã", rss: "https://www.cmjornal.pt/rss" },
-  { fonte: "Observador", rss: "https://observador.pt/feed" },
-  { fonte: "SIC Notícias", rss: "https://sicnoticias.pt/rss" },
-  { fonte: "CNN Portugal", rss: "https://cnnportugal.iol.pt/rss.xml" },
-  { fonte: "RTP Notícias", rss: "https://www.rtp.pt/noticias/rss" },
-  { fonte: "Sapo Notícias", rss: "https://feeds.feedburner.com/PublicoRSS" }, // exemplo, podes trocar
-
-  // --- POLÍTICA / ECONOMIA
-  { fonte: "Polígrafo", rss: "https://poligrafo.sapo.pt/rss" },
-  { fonte: "ECO", rss: "https://eco.sapo.pt/feed" },
-  { fonte: "Jornal Económico", rss: "https://jornaleconomico.pt/feed" },
-  { fonte: "Esquerda.net", rss: "https://www.esquerda.net/rss.xml" },
-
-  // --- PARTIDOS (muitas vezes têm secção notícias)
-  { fonte: "PS", rss: "https://ps.pt/feed" },
-  { fonte: "PSD", rss: "https://psd.pt/feed" },
-  { fonte: "Chega", rss: "https://chega.pt/feed" },
-  { fonte: "IL", rss: "https://iniciativaliberal.pt/feed" },
-  { fonte: "Bloco de Esquerda", rss: "https://bloco.org/rss.xml" },
+  {
+    fonte: "Público",
+    url: "https://www.publico.pt",
+  }, // scraping (rss atual é chato)
+  {
+    fonte: "Expresso",
+    url: "https://expresso.pt",
+  }, // scraping
+  {
+    fonte: "Diário de Notícias",
+    url: "https://www.dn.pt",
+  }, // scraping
+  {
+    fonte: "Jornal de Notícias",
+    url: "https://www.jn.pt",
+  }, // scraping
+  {
+    fonte: "Correio da Manhã",
+    url: "https://www.cmjornal.pt",
+  }, // scraping
+  {
+    fonte: "Observador",
+    url: "https://observador.pt",
+    rss: "https://observador.pt/feed",
+  },
+  {
+    fonte: "SIC Notícias",
+    url: "https://sicnoticias.pt",
+    rss: "https://sicnoticias.pt/rss",
+  },
+  {
+    fonte: "CNN Portugal",
+    url: "https://cnnportugal.iol.pt",
+    rss: "https://cnnportugal.iol.pt/rss.xml",
+  },
+  {
+    fonte: "RTP Notícias",
+    url: "https://www.rtp.pt/noticias",
+    rss: "https://www.rtp.pt/noticias/rss",
+  },
+  {
+    fonte: "ECO",
+    url: "https://eco.sapo.pt",
+    rss: "https://eco.sapo.pt/feed",
+  },
+  {
+    fonte: "Jornal Económico",
+    url: "https://jornaleconomico.pt",
+    rss: "https://jornaleconomico.pt/feed",
+  },
+  {
+    fonte: "Esquerda.net",
+    url: "https://www.esquerda.net",
+    rss: "https://www.esquerda.net/rss.xml",
+  },
 
   // --- BLOGS POLÍTICOS
-  { fonte: "Aventar", rss: "https://aventar.eu/feed" },
-  { fonte: "O Insurgente", rss: "https://oinsurgente.org/feed" },
-  { fonte: "Contra-Corrente", rss: "https://contracorrente.substack.com/feed" },
-  { fonte: "Ladrões de Bicicletas", rss: "https://ladroesdebicicletas.blogspot.com/feeds/posts/default" },
+  {
+    fonte: "Aventar",
+    url: "https://aventar.eu",
+    rss: "https://aventar.eu/feed",
+  },
+  {
+    fonte: "O Insurgente",
+    url: "https://oinsurgente.org",
+    rss: "https://oinsurgente.org/feed",
+  },
+  {
+    fonte: "Ladrões de Bicicletas",
+    url: "https://ladroesdebicicletas.blogspot.com",
+    rss: "https://ladroesdebicicletas.blogspot.com/feeds/posts/default",
+  },
+  {
+    fonte: "Contra-Corrente",
+    url: "https://contracorrente.substack.com",
+    rss: "https://contracorrente.substack.com/feed",
+  },
 
   // --- BLOGS / OPINIÃO
-  { fonte: "Pontos de Vista", rss: "https://pontosdevista.pt/feed" },
-  { fonte: "António Maria", rss: "https://oamiguel.com/feed" },
-  { fonte: "Viriato Soromenho Marques", rss: "https://viriatosm.substack.com/feed" },
+  {
+    fonte: "Pontos de Vista",
+    url: "https://pontosdevista.pt",
+    rss: "https://pontosdevista.pt/feed",
+  },
+  {
+    fonte: "António Maria",
+    url: "https://oamiguel.com",
+    rss: "https://oamiguel.com/feed",
+  },
+  {
+    fonte: "Viriato Soromenho Marques",
+    url: "https://viriatosm.substack.com",
+    rss: "https://viriatosm.substack.com/feed",
+  },
 
   // --- TECNOLOGIA
-  { fonte: "Pplware", rss: "https://pplware.sapo.pt/feed" },
-  { fonte: "Leak", rss: "https://www.leak.pt/feed" },
-  { fonte: "Mais Tecnologia", rss: "https://www.maistecnologia.com/feed" }
+  {
+    fonte: "Pplware",
+    url: "https://pplware.sapo.pt",
+    rss: "https://pplware.sapo.pt/feed",
+  },
+  {
+    fonte: "Leak",
+    url: "https://www.leak.pt",
+    rss: "https://www.leak.pt/feed",
+  },
+  {
+    fonte: "Mais Tecnologia",
+    url: "https://www.maistecnologia.com",
+    rss: "https://www.maistecnologia.com/feed",
+  },
 ];
 
-// ===============================
-//  FUNÇÃO: LER RSS DE UMA FONTE
-// ===============================
-async function buscarNoticiasFonte(fonte, termo) {
+// ==================================================
+//  FUNÇÃO RSS (quando existir e não falhar)
+// ==================================================
+async function buscarNoticiasRSS(fonte, termo) {
   if (!fonte.rss) return [];
-
   try {
-    const resp = await axios.get(fonte.rss, { timeout: 8000 });
+    const resp = await axios.get(fonte.rss, {
+      timeout: 8000,
+      headers: DEFAULT_HEADERS,
+    });
     const $ = cheerio.load(resp.data, { xmlMode: true });
 
     const termoLower = termo.toLowerCase();
@@ -116,7 +218,7 @@ async function buscarNoticiasFonte(fonte, termo) {
         fonte: fonte.fonte,
         url: link || fonte.url || "",
         data: dataIso,
-        resumo: descricao
+        resumo: descricao,
       });
     });
 
@@ -127,9 +229,79 @@ async function buscarNoticiasFonte(fonte, termo) {
   }
 }
 
-// ===============================
-//  ROTA /api/noticias
-// ===============================
+// ==================================================
+//  FUNÇÃO SCRAPING HTML GENÉRICO
+// ==================================================
+async function buscarNoticiasHTML(fonte, termo) {
+  if (!fonte.url) return [];
+  try {
+    const resp = await axios.get(fonte.url, {
+      timeout: 8000,
+      headers: DEFAULT_HEADERS,
+    });
+    const $ = cheerio.load(resp.data);
+
+    const termoLower = termo.toLowerCase();
+    const noticias = [];
+    const usados = new Set();
+
+    // Procurar links que contenham o termo no texto
+    $("a").each((_, el) => {
+      if (noticias.length >= 5) return; // max 5 por site (para não rebentar)
+
+      const texto = $(el).text().trim();
+      if (!texto) return;
+
+      const textoLower = texto.toLowerCase();
+      if (!textoLower.includes(termoLower)) return;
+
+      let href = $(el).attr("href") || "";
+      if (!href) return;
+
+      // link absoluto
+      try {
+        href = new URL(href, fonte.url).toString();
+      } catch {
+        return;
+      }
+
+      const key = texto + "||" + href;
+      if (usados.has(key)) return;
+      usados.add(key);
+
+      // tentar apanhar um parágrafo próximo como resumo
+      let resumo = "";
+      const article = $(el).closest("article");
+      if (article.length) {
+        resumo = article.find("p").first().text().trim();
+      }
+      if (!resumo) {
+        // procurar <p> logo a seguir
+        const pNext = $(el).parent().find("p").first().text().trim();
+        if (pNext) resumo = pNext;
+      }
+
+      const dataIso = new Date().toISOString();
+
+      noticias.push({
+        titulo: texto,
+        fonte: fonte.fonte,
+        url: href,
+        data: dataIso,
+        resumo,
+      });
+    });
+
+    return noticias;
+  } catch (err) {
+    console.error("Erro ao fazer scraping de", fonte.fonte, "-", err.message);
+    return [];
+  }
+}
+
+// ==================================================
+//  ROTA /api/noticias – combina RSS + HTML
+// ==================================================
 app.get("/api/noticias", async (req, res) => {
   const termo = (req.query.q || "").trim();
   const hoursParam = parseInt(req.query.hours || "0", 10);
@@ -139,23 +311,30 @@ app.get("/api/noticias", async (req, res) => {
   }
 
   try {
-    // vai buscar em paralelo a TODAS as fontes
     const porFonte = await Promise.all(
-      fontes.map((f) => buscarNoticiasFonte(f, termo))
+      fontes.map(async (f) => {
+        // 1º tenta RSS, se existir
+        const rssNoticias = await buscarNoticiasRSS(f, termo);
+        if (rssNoticias.length) return rssNoticias;
+
+        // 2º fallback: scraping HTML
+        const htmlNoticias = await buscarNoticiasHTML(f, termo);
+        return htmlNoticias;
+      })
     );
 
     let todos = porFonte.flat();
 
-    // filtro por horas, se escolheste 12/24/48
+    // filtro por horas, se escolhido
     if (hoursParam > 0) {
       const limite = new Date(Date.now() - hoursParam * 3600 * 1000);
-      todos = todos.filter(n => new Date(n.data) >= limite);
+      todos = todos.filter((n) => new Date(n.data) >= limite);
     }
 
     // ordenar por data (mais recente primeiro)
     todos.sort((a, b) => new Date(b.data) - new Date(a.data));
 
-    // fallback: se nada encontrado, devolve pelo menos exemplos “fake”
+    // se mesmo assim nada, devolve notícias "fake" para não ficar vazio
     if (!todos.length) {
       const agora = new Date();
       todos = fontes.map((fonte, idx) => {
@@ -165,21 +344,21 @@ app.get("/api/noticias", async (req, res) => {
           fonte: fonte.fonte,
           url: fonte.url || "",
           data: data.toISOString(),
-          resumo: `Resumo automático da pesquisa por "${termo}" no site ${fonte.fonte}.`
+          resumo: `Resumo automático da pesquisa por "${termo}" no site ${fonte.fonte}.`,
         };
       });
     }
 
     res.json(todos);
   } catch (err) {
-    console.error(err);
+    console.error("Erro geral /api/noticias:", err);
     res.status(500).json({ error: "Erro ao buscar notícias." });
   }
 });
 
-// ===============================
-//  FRONTEND ESTÁTICO
-// ===============================
+// ==================================================
+//  SERVIR FRONTEND (pasta public)
+// ==================================================
 app.use(express.static(path.join(__dirname, "../public")));
 
 app.listen(PORT, () => {
