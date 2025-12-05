@@ -205,13 +205,17 @@
       setLoading(true);
 
       try {
-        const url = `/search?q=${encodeURIComponent(q)}&hours=${hours}`;
+        // 🚀 CHAMAR O TEU BACKEND CORRECTO
+        const url = `/api/noticias?q=${encodeURIComponent(q)}&hours=${hours}`;
         const resp = await fetch(url);
+
         if (!resp.ok) throw new Error("Erro HTTP " + resp.status);
+
         const dados = await resp.json();
 
-        if (!dados.length) {
-          resultsMetaEl.textContent = `Nenhum resultado encontrado para "${q}" com esse filtro de tempo.`;
+        if (!Array.isArray(dados) || !dados.length) {
+          resultsMetaEl.textContent =
+            `Nenhum resultado encontrado para "${q}" com esse filtro de tempo.`;
           return;
         }
 
@@ -224,6 +228,10 @@
           `Encontradas ${dados.length} notícias para "${q}" (${labelTempo}).`;
 
         dados.forEach((item) => {
+          // adaptar aos campos vindos do backend: titulo, fonte, url, data
+          const siteNome = item.site || item.fonte || "Fonte desconhecida";
+          const linkUrl = item.link || item.url || "#";
+
           const card = document.createElement("article");
           card.className = "card";
 
@@ -232,7 +240,7 @@
 
           const siteEl = document.createElement("div");
           siteEl.className = "site-label";
-          siteEl.textContent = item.site;
+          siteEl.textContent = siteNome;
 
           const dateEl = document.createElement("div");
           dateEl.className = "date-label";
@@ -244,10 +252,10 @@
           const titleEl = document.createElement("h2");
           titleEl.className = "card-title";
           const a = document.createElement("a");
-          a.href = item.link;
+          a.href = linkUrl;
           a.target = "_blank";
           a.rel = "noopener noreferrer";
-          a.textContent = item.titulo;
+          a.textContent = item.titulo || "Sem título";
           titleEl.appendChild(a);
 
           const snippetEl = document.createElement("p");
@@ -257,7 +265,7 @@
           const footer = document.createElement("div");
           footer.className = "card-footer";
           const linkEl = document.createElement("a");
-          linkEl.href = item.link;
+          linkEl.href = linkUrl;
           linkEl.target = "_blank";
           linkEl.rel = "noopener noreferrer";
           linkEl.textContent = "Abrir notícia ↗";
@@ -272,7 +280,8 @@
         });
       } catch (err) {
         console.error(err);
-        errorBox.textContent = "Erro ao contactar o servidor. Tenta novamente mais tarde.";
+        errorBox.textContent =
+          "Erro ao contactar o servidor. Tenta novamente mais tarde.";
       } finally {
         setLoading(false);
       }
