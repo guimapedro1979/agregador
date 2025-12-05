@@ -25,11 +25,13 @@ const fontes = [
 
   // --- Benfica
   { fonte: "1904 Glorioso", rss: "https://1904glorioso.com/feed" },
+  { fonte: "1904 Glorioso", rss: "https://glorioso1904.pt/feed" },
   { fonte: "Geração Benfica", rss: "https://geracaobenfica.blogspot.com/feeds/posts/default" },
   { fonte: "Benfica Oficial", rss: "https://www.slbenfica.pt/rss" },
 
   // --- Sporting
   { fonte: "O Leonino", rss: "https://www.oartistadodia.pt/feeds/posts/default" }, // ajuste se tiver outro feed
+  { fonte: "O Leonino", rss: "https://leonino.pt/feeds/posts/default" },
   { fonte: "Sporting CP", rss: "https://www.sporting.pt/pt/noticias/rss" },
   { fonte: "Bancada de Leão", rss: "https://bancadadeleao.blogspot.com/feeds/posts/default" },
 
