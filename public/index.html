@@ -149,7 +149,7 @@
       />
       <select id="timeFilter">
         <option value="0">Sem filtro de tempo</option>
-        <option value="2">Sem filtro de tempo</option>
+        <option value="2">Últimas 2 horas</option>
         <option value="12">Últimas 12 horas</option>
         <option value="24" selected>Últimas 24 horas</option>
         <option value="48">Últimas 48 horas</option>
@@ -206,7 +206,6 @@
       setLoading(true);
 
       try {
-        // 🚀 CHAMAR O TEU BACKEND CORRECTO
         const url = `/api/noticias?q=${encodeURIComponent(q)}&hours=${hours}`;
         const resp = await fetch(url);
 
@@ -229,10 +228,6 @@
           `Encontradas ${dados.length} notícias para "${q}" (${labelTempo}).`;
 
         dados.forEach((item) => {
-          // adaptar aos campos vindos do backend: titulo, fonte, url, data
-          const siteNome = item.site || item.fonte || "Fonte desconhecida";
-          const linkUrl = item.link || item.url || "#";
-
           const card = document.createElement("article");
           card.className = "card";
 
@@ -241,7 +236,7 @@
 
           const siteEl = document.createElement("div");
           siteEl.className = "site-label";
-          siteEl.textContent = siteNome;
+          siteEl.textContent = item.fonte || item.site || "Fonte desconhecida";
 
           const dateEl = document.createElement("div");
           dateEl.className = "date-label";
@@ -252,11 +247,13 @@
 
           const titleEl = document.createElement("h2");
           titleEl.className = "card-title";
+
           const a = document.createElement("a");
-          a.href = linkUrl;
+          a.href = item.url || item.link || "#";
           a.target = "_blank";
           a.rel = "noopener noreferrer";
           a.textContent = item.titulo || "Sem título";
+
           titleEl.appendChild(a);
 
           const snippetEl = document.createElement("p");
@@ -266,15 +263,16 @@
           const footer = document.createElement("div");
           footer.className = "card-footer";
           const linkEl = document.createElement("a");
-          linkEl.href = linkUrl;
+          linkEl.href = a.href;
           linkEl.target = "_blank";
           linkEl.rel = "noopener noreferrer";
           linkEl.textContent = "Abrir notícia ↗";
+
           footer.appendChild(linkEl);
 
           card.appendChild(header);
           card.appendChild(titleEl);
-          if (item.resumo) card.appendChild(snippetEl);
+          card.appendChild(snippetEl);  // garante que o “teor” aparece sempre
           card.appendChild(footer);
 
           resultsEl.appendChild(card);
