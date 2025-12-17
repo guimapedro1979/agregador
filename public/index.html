@@ -1,59 +1,89 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
 <head>
-<meta charset="UTF-8">
-<title>Agregador Notícias PT</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{margin:0;background:#0f172a;color:#e5e7eb;font-family:system-ui}
-header{padding:16px;background:#020617}
-main{max-width:1100px;margin:auto;padding:16px}
-input,select,button{padding:10px;border-radius:20px;border:none}
-button{background:#6366f1;color:#fff}
-.card{background:#020617;margin-top:12px;padding:12px;border-radius:12px}
-small{color:#9ca3af}
-a{color:#6366f1;text-decoration:none}
-</style>
+  <meta charset="UTF-8" />
+  <title>Agregador de Notícias PT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:system-ui;margin:0;background:#0f172a;color:#e5e7eb}
+    header{background:#020617;padding:16px 24px;position:sticky;top:0}
+    main{max-width:1100px;margin:0 auto;padding:16px 24px}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input,select,button{padding:10px 14px;border-radius:999px;border:none}
+    input{flex:1 1 300px}
+    select{background:#020617;color:#e5e7eb;border:1px solid #1f2937}
+    button{background:#6366f1;color:#fff;cursor:pointer}
+    .meta{margin:12px 0;color:#9ca3af}
+    .card{background:#020617;border:1px solid #1f2937;border-radius:14px;padding:12px;margin-top:10px}
+    .src{color:#a5b4fc;font-size:.8rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+    .dt{color:#6b7280;font-size:.75rem}
+    a{color:#6366f1;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
 </head>
 <body>
+  <header><h2>Agregador de Notícias PT</h2></header>
+  <main>
+    <div class="controls">
+      <input id="q" placeholder="Ex.: André Ventura / AV / Benfica / SCP" />
+      <select id="t">
+        <option value="2">Últimas 2 horas</option>
+        <option value="12">Últimas 12 horas</option>
+        <option value="24" selected>Últimas 24 horas</option>
+        <option value="48">Últimas 48 horas</option>
+        <option value="0">Sem filtro</option>
+      </select>
+      <button id="b">Pesquisar</button>
+    </div>
 
-<header><h2>Agregador de Notícias PT</h2></header>
+    <div class="meta" id="m"></div>
+    <div id="r"></div>
+  </main>
 
-<main>
-<input id="q" placeholder="AV, PR, Benfica, SCP..." style="width:60%">
-<select id="t">
-<option value="2">Últimas 2 horas</option>
-<option value="12">Últimas 12 horas</option>
-<option value="24" selected>Últimas 24 horas</option>
-<option value="48">Últimas 48 horas</option>
-<option value="0">Sem filtro</option>
-</select>
-<button onclick="go()">Pesquisar</button>
+  <script>
+    const qEl = document.getElementById("q");
+    const tEl = document.getElementById("t");
+    const rEl = document.getElementById("r");
+    const mEl = document.getElementById("m");
+    const bEl = document.getElementById("b");
 
-<div id="r"></div>
-</main>
+    function esc(s){return (s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
 
-<script>
-async function go(){
-  const q=document.getElementById("q").value;
-  const t=document.getElementById("t").value;
-  const r=document.getElementById("r");
-  r.innerHTML="";
+    async function go(){
+      const q = qEl.value.trim();
+      const hours = tEl.value;
+      if(!q){ mEl.textContent="Escreve um termo de pesquisa."; rEl.innerHTML=""; return; }
 
-  const res=await fetch(`/api/noticias?q=${encodeURIComponent(q)}&hours=${t}`);
-  const data=await res.json();
+      bEl.disabled = true; bEl.textContent = "A procurar…";
+      mEl.textContent = "";
+      rEl.innerHTML = "";
 
-  data.forEach(n=>{
-    r.innerHTML+=`
-    <div class="card">
-      <small>${n.fonte} · ${new Date(n.data).toLocaleString("pt-PT")}</small>
-      <h3><a href="${n.url}" target="_blank">${n.titulo}</a></h3>
-      <p>${n.resumo}</p>
-      <a href="${n.video}" target="_blank">Ver vídeos ▶</a>
-    </div>`;
-  });
-}
-</script>
+      const resp = await fetch(`/api/noticias?q=${encodeURIComponent(q)}&hours=${hours}`);
+      const data = await resp.json();
 
+      if(!Array.isArray(data) || data.length === 0){
+        mEl.textContent = `Sem resultados para "${q}" nesse período. (Isto acontece quando a fonte não expõe esse termo no RSS/trecho, ou não tem data válida.)`;
+        bEl.disabled = false; bEl.textContent="Pesquisar";
+        return;
+      }
+
+      mEl.textContent = `Encontradas ${data.length} notícias para "${q}".`;
+
+      rEl.innerHTML = data.map(n => `
+        <div class="card">
+          <div class="src">${esc(n.fonte || "")}</div>
+          <div class="dt">${new Date(n.data).toLocaleString("pt-PT")}</div>
+          <h3><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.titulo)}</a></h3>
+          <p>${esc(n.resumo || "")}</p>
+          <a href="${esc(n.video)}" target="_blank" rel="noopener">Ver vídeos ▶</a>
+        </div>
+      `).join("");
+
+      bEl.disabled = false; bEl.textContent="Pesquisar";
+    }
+
+    bEl.addEventListener("click", go);
+    qEl.addEventListener("keydown", e => { if(e.key === "Enter") go(); });
+  </script>
 </body>
 </html>
